@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+
+# Logs
+logs/
+*.log
+
+# Local/generated data
+data/local/
+data/rejected/
+data/archive/
+*.csv
+*.json
+*.parquet
+
+# Docker/system
+*.pid
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# DBT
+target/
+dbt_packages/
+
+# Airflow
+airflow/logs/
+airflow/plugins/
+airflow/data/
+
+# Jupyter
+.ipynb_checkpoints/
