@@ -15,8 +15,6 @@ services:
     restart: unless-stopped
 
 
-
-
   minio:
     image: minio/minio:latest
     container_name: ride_hailing_minio
@@ -32,6 +30,22 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
+
+
+
+  liquibase:
+    build:
+      context: .
+      dockerfile: docker/liquibase/Dockerfile
+    container_name: ride_hailing_liquibase
+    depends_on:
+      - postgres
+    volumes:
+      - ./docker/liquibase/changelog:/liquibase/changelog
+    command:
+      - --defaultsFile=/liquibase/liquibase.properties
+      - update
+
 
 volumes:
   postgres_data:

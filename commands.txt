@@ -1,0 +1,22 @@
+commands 
+
+accessing postgres
+docker exec -it ride_hailing_postgres psql -U postgres -d ride_hailing_dw
+-----------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+----------------------------------
+Postgress Commands
+---------------------------------
+
+List all databases                 \l
+List all schemas                   \dn
+List tables in a schema            \dt staging.*   (where staging is schema name)

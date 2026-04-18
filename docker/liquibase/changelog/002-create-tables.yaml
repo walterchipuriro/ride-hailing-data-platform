@@ -1,0 +1,110 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-staging-ride-events
+      author: walter
+      changes:
+        - createTable:
+            schemaName: staging
+            tableName: ride_events
+            columns:
+              - column:
+                  name: event_id
+                  type: varchar(100)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: ride_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: driver_id
+                  type: varchar(100)
+              - column:
+                  name: rider_id
+                  type: varchar(100)
+              - column:
+                  name: event_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_timestamp
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pickup_location
+                  type: varchar(100)
+              - column:
+                  name: dropoff_location
+                  type: varchar(100)
+              - column:
+                  name: fare_usd
+                  type: numeric(10,2)
+              - column:
+                  name: payment_method
+                  type: varchar(50)
+              - column:
+                  name: payment_status
+                  type: varchar(50)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+  - changeSet:
+      id: 004-create-warehouse-fct-ride-events
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: event_id
+                  type: varchar(100)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: ride_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: driver_id
+                  type: varchar(100)
+              - column:
+                  name: rider_id
+                  type: varchar(100)
+              - column:
+                  name: event_type
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_timestamp
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pickup_location
+                  type: varchar(100)
+              - column:
+                  name: dropoff_location
+                  type: varchar(100)
+              - column:
+                  name: fare_usd
+                  type: numeric(10,2)
+              - column:
+                  name: payment_method
+                  type: varchar(50)
+              - column:
+                  name: payment_status
+                  type: varchar(50)
+              - column:
+                  name: loaded_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
