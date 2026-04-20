@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-add-event-version-to-staging-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: staging
+            tableName: ride_events
+            columns:
+              - column:
+                  name: event_version
+                  type: varchar(10)
+                  defaultValue: "1.0"
+
+  - changeSet:
+      id: 006-add-event-version-to-warehouse-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: event_version
+                  type: varchar(10)
+                  defaultValue: "1.0"
