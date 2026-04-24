@@ -1,0 +1,56 @@
+databaseChangeLog:
+  - changeSet:
+      id: 022-create-warehouse-dim-driver
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: dim_driver
+            columns:
+              - column:
+                  name: driver_key
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: driver_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: driver_status
+                  type: varchar(50)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+  - changeSet:
+      id: 023-create-warehouse-dim-rider
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: dim_rider
+            columns:
+              - column:
+                  name: rider_key
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: rider_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: rider_status
+                  type: varchar(50)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP

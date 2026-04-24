@@ -1,0 +1,103 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-create-warehouse-dim-payment-method
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: dim_payment_method
+            columns:
+              - column:
+                  name: payment_method_key
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: payment_method_name
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+  - changeSet:
+      id: 010-create-warehouse-dim-location
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: dim_location
+            columns:
+              - column:
+                  name: location_key
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: location_name
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: city_name
+                  type: varchar(100)
+                  defaultValue: "Harare"
+              - column:
+                  name: area_type
+                  type: varchar(50)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+  - changeSet:
+      id: 011-create-warehouse-dim-date
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: dim_date
+            columns:
+              - column:
+                  name: date_key
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: full_date
+                  type: date
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: day_of_month
+                  type: int
+              - column:
+                  name: month_number
+                  type: int
+              - column:
+                  name: month_name
+                  type: varchar(20)
+              - column:
+                  name: quarter_number
+                  type: int
+              - column:
+                  name: year_number
+                  type: int
+              - column:
+                  name: day_name
+                  type: varchar(20)
+              - column:
+                  name: is_weekend
+                  type: boolean
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP

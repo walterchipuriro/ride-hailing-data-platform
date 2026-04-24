@@ -8,3 +8,21 @@ databaseChangeLog:
   - include:
       file: 003-add-event-version.yaml
       relativeToChangelogFile: true
+  - include:
+      file: 004-create-additional-fact-tables.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 005-create-dimension-tables.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 006-add-dimension-keys-to-fct-ride-events.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 007-add-dimension-keys-to-fct-trips-and-payments.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 008-create-driver-and-rider-dimensions.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: 009-add-driver-and-rider-keys-to-facts.yaml
+      relativeToChangelogFile: true

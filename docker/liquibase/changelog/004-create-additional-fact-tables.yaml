@@ -1,0 +1,106 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-warehouse-fct-trips
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: trip_key
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: ride_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: driver_id
+                  type: varchar(100)
+              - column:
+                  name: rider_id
+                  type: varchar(100)
+              - column:
+                  name: pickup_location
+                  type: varchar(100)
+              - column:
+                  name: dropoff_location
+                  type: varchar(100)
+              - column:
+                  name: trip_status
+                  type: varchar(50)
+              - column:
+                  name: trip_completed_at
+                  type: timestamp
+              - column:
+                  name: fare_usd
+                  type: numeric(10,2)
+              - column:
+                  name: payment_method
+                  type: varchar(50)
+              - column:
+                  name: payment_status
+                  type: varchar(50)
+              - column:
+                  name: event_version
+                  type: varchar(10)
+                  defaultValue: "1.0"
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+  - changeSet:
+      id: 008-create-warehouse-fct-payments
+      author: walter
+      changes:
+        - createTable:
+            schemaName: warehouse
+            tableName: fct_payments
+            columns:
+              - column:
+                  name: payment_key
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: payment_event_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ride_id
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: driver_id
+                  type: varchar(100)
+              - column:
+                  name: rider_id
+                  type: varchar(100)
+              - column:
+                  name: payment_method
+                  type: varchar(50)
+              - column:
+                  name: payment_status
+                  type: varchar(50)
+              - column:
+                  name: amount_usd
+                  type: numeric(10,2)
+              - column:
+                  name: payment_timestamp
+                  type: timestamp
+              - column:
+                  name: event_version
+                  type: varchar(10)
+                  defaultValue: "1.0"
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP

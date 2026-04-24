@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 016-add-payment-method-key-to-fct-trips
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: payment_method_key
+                  type: bigint
+
+  - changeSet:
+      id: 017-add-pickup-location-key-to-fct-trips
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: pickup_location_key
+                  type: bigint
+
+  - changeSet:
+      id: 018-add-dropoff-location-key-to-fct-trips
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: dropoff_location_key
+                  type: bigint
+
+  - changeSet:
+      id: 019-add-trip-date-key-to-fct-trips
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: trip_date_key
+                  type: int
+
+  - changeSet:
+      id: 020-add-payment-method-key-to-fct-payments
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_payments
+            columns:
+              - column:
+                  name: payment_method_key
+                  type: bigint
+
+  - changeSet:
+      id: 021-add-payment-date-key-to-fct-payments
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_payments
+            columns:
+              - column:
+                  name: payment_date_key
+                  type: int

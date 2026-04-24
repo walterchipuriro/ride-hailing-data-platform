@@ -1,0 +1,48 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-add-payment-method-key-to-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: payment_method_key
+                  type: bigint
+
+  - changeSet:
+      id: 013-add-pickup-location-key-to-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: pickup_location_key
+                  type: bigint
+
+  - changeSet:
+      id: 014-add-dropoff-location-key-to-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: dropoff_location_key
+                  type: bigint
+
+  - changeSet:
+      id: 015-add-event-date-key-to-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: event_date_key
+                  type: int

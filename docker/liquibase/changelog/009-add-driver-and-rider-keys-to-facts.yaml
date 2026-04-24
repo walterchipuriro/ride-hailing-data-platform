@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 024-add-driver-key-to-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: driver_key
+                  type: bigint
+
+  - changeSet:
+      id: 025-add-rider-key-to-fct-ride-events
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_ride_events
+            columns:
+              - column:
+                  name: rider_key
+                  type: bigint
+
+  - changeSet:
+      id: 026-add-driver-key-to-fct-trips
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: driver_key
+                  type: bigint
+
+  - changeSet:
+      id: 027-add-rider-key-to-fct-trips
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_trips
+            columns:
+              - column:
+                  name: rider_key
+                  type: bigint
+
+  - changeSet:
+      id: 028-add-driver-key-to-fct-payments
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_payments
+            columns:
+              - column:
+                  name: driver_key
+                  type: bigint
+
+  - changeSet:
+      id: 029-add-rider-key-to-fct-payments
+      author: walter
+      changes:
+        - addColumn:
+            schemaName: warehouse
+            tableName: fct_payments
+            columns:
+              - column:
+                  name: rider_key
+                  type: bigint

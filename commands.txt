@@ -20,3 +20,25 @@ Postgress Commands
 List all databases                 \l
 List all schemas                   \dn
 List tables in a schema            \dt staging.*   (where staging is schema name)
+
+
+
+
+
+--------------------------------------------------
+Generating and pushing data commands
+--------------------------------------------------
+
+python data_generator/generate_ride_events.py --count 100
+ls data/local/raw/ride_events/
+python ingestion/upload_to_minio.py --file data/local/raw/ride_events/<your-file>.jsonl
+python ingestion/load_to_postgres.py --file data/local/raw/ride_events/<your-file>.jsonl
+python ingestion/load_staging_to_warehouse.py
+python ingestion/load_dim_payment_method.py
+python ingestion/load_dim_location.py
+python ingestion/load_dim_date.py
+python ingestion/load_dim_driver.py
+python ingestion/load_dim_rider.py
+python ingestion/update_fct_ride_events_dimension_keys.py
+python ingestion/update_fct_trips_dimension_keys.py
+python ingestion/update_fct_payments_dimension_keys.py
