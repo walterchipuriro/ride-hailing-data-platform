@@ -1,0 +1,19 @@
+walter-claudio@walter-claudio:~/Downloads/Zimttech/Personal/ride-hailing-data-platform$ docker-compose up -d --build
+Building liquibase
+[+] Building 0.1s (2/2) FINISHED                                                                                                                                               docker:default
+ => [internal] load build definition from Dockerfile                                                                                                                                     0.0s
+ => => transferring dockerfile: 238B                                                                                                                                                     0.0s
+ => ERROR [internal] load metadata for docker.io/liquibase/liquibase:4.29                                                                                                                0.0s
+------
+ > [internal] load metadata for docker.io/liquibase/liquibase:4.29:
+------
+Dockerfile:1
+--------------------
+   1 | >>> FROM liquibase/liquibase:4.29
+   2 |     
+   3 |     ADD https://jdbc.postgresql.org/download/postgresql-42.7.3.jar /liquibase/lib/postgresql.jar
+--------------------
+ERROR: failed to build: failed to solve: liquibase/liquibase:4.29: failed to resolve source metadata for docker.io/liquibase/liquibase:4.29: failed to do request: Head "https://registry-1.docker.io/v2/liquibase/liquibase/manifests/4.29": dial tcp: lookup registry-1.docker.io on 127.0.0.53:53: server misbehaving
+ERROR: Service 'liquibase' failed to build : Build failed
+walter-claudio@walter-claudio:~/Downloads/Zimttech/Personal/ride-hailing-data-platform$ 
+
