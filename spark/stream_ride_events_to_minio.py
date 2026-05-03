@@ -1,11 +1,15 @@
+import os
+
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col,
     current_timestamp,
     from_json,
+    lit,
     lower,
     to_date,
     to_timestamp,
+    when,
 )
 from pyspark.sql.types import (
     StructType,
@@ -15,21 +19,40 @@ from pyspark.sql.types import (
 )
 
 
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-KAFKA_TOPIC = "ride_events"
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS") or "localhost:9092"
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC") or "ride_events"
+KAFKA_CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP") or "spark-ride-events-minio"
 
-MINIO_ENDPOINT = "http://localhost:9000"
-MINIO_ACCESS_KEY = "minioadmin"
-MINIO_SECRET_KEY = "minioadmin"
-MINIO_BUCKET = "ride-hailing-data"
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT") or "localhost:9000"
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY") or "minioadmin"
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY") or "minioadmin"
+MINIO_BUCKET = os.getenv("MINIO_BUCKET") or "ride-hailing-data"
 
 RAW_OUTPUT_PATH = f"s3a://{MINIO_BUCKET}/raw/ride_events/"
 CLEAN_OUTPUT_PATH = f"s3a://{MINIO_BUCKET}/clean/ride_events/"
 REJECTED_OUTPUT_PATH = f"s3a://{MINIO_BUCKET}/rejected/ride_events/"
 
-RAW_CHECKPOINT_PATH = f"s3a://{MINIO_BUCKET}/checkpoints/ride_events/raw/"
-CLEAN_CHECKPOINT_PATH = f"s3a://{MINIO_BUCKET}/checkpoints/ride_events/clean/"
-REJECTED_CHECKPOINT_PATH = f"s3a://{MINIO_BUCKET}/checkpoints/ride_events/rejected/"
+FOREACH_BATCH_CHECKPOINT_PATH = f"s3a://{MINIO_BUCKET}/checkpoints/ride_events/foreach_batch/"
+
+ALLOWED_EVENT_TYPES = [
+    "ride_requested",
+    "driver_assigned",
+    "trip_started",
+    "trip_completed",
+    "payment_completed",
+]
+
+ALLOWED_PAYMENT_METHODS = [
+    "cash",
+    "card",
+    "ecocash",
+]
+
+ALLOWED_PAYMENT_STATUSES = [
+    "pending",
+    "paid",
+    "failed",
+]
 
 
 ride_event_schema = StructType([
@@ -52,20 +75,172 @@ def create_spark_session():
     spark = (
         SparkSession.builder
         .appName("RideEventsKafkaToMinIO")
+
+        # MinIO / S3A configuration
         .config("spark.hadoop.fs.s3a.endpoint", MINIO_ENDPOINT)
         .config("spark.hadoop.fs.s3a.access.key", MINIO_ACCESS_KEY)
         .config("spark.hadoop.fs.s3a.secret.key", MINIO_SECRET_KEY)
         .config("spark.hadoop.fs.s3a.path.style.access", "true")
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+        .config(
+            "spark.hadoop.fs.s3a.aws.credentials.provider",
+            "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+        )
+
+        # Local dev stability
+        .config("spark.sql.shuffle.partitions", "1")
+        .config("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true")
         .getOrCreate()
+    )
+
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+    hadoop_conf.set("fs.s3a.endpoint", MINIO_ENDPOINT)
+    hadoop_conf.set("fs.s3a.access.key", MINIO_ACCESS_KEY)
+    hadoop_conf.set("fs.s3a.secret.key", MINIO_SECRET_KEY)
+    hadoop_conf.set("fs.s3a.path.style.access", "true")
+    hadoop_conf.set("fs.s3a.connection.ssl.enabled", "false")
+    hadoop_conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+    hadoop_conf.set(
+        "fs.s3a.aws.credentials.provider",
+        "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
     )
 
     spark.sparkContext.setLogLevel("WARN")
     return spark
 
 
+def process_micro_batch(batch_df, batch_id):
+    """
+    This function runs once for every Spark micro-batch.
+
+    One Kafka batch enters here, then we split it into:
+    1. raw records
+    2. clean valid records
+    3. rejected invalid records
+    """
+
+    if batch_df.isEmpty():
+        print(f"Batch {batch_id}: no records to process.")
+        return
+
+    batch_df.persist()
+
+    total_count = batch_df.count()
+    valid_count = batch_df.filter(col("is_valid") == True).count()
+    rejected_count = batch_df.filter(col("is_valid") == False).count()
+
+    print("=" * 100)
+    print(f"Processing Spark micro-batch: {batch_id}")
+    print(f"Total records: {total_count}")
+    print(f"Valid records: {valid_count}")
+    print(f"Rejected records: {rejected_count}")
+    print("=" * 100)
+
+    raw_batch_df = (
+        batch_df
+        .select(
+            col("kafka_key"),
+            col("raw_json"),
+            col("topic"),
+            col("partition"),
+            col("offset"),
+            col("kafka_timestamp"),
+            col("ingested_at"),
+            col("ingestion_date"),
+        )
+    )
+
+    valid_clean_batch_df = (
+        batch_df
+        .filter(col("is_valid") == True)
+        .select(
+            col("event_id"),
+            col("ride_id"),
+            col("driver_id"),
+            col("rider_id"),
+            col("event_type"),
+            col("event_version"),
+            col("event_timestamp"),
+            col("pickup_location"),
+            col("dropoff_location"),
+            col("fare_usd"),
+            col("payment_method"),
+            col("payment_status"),
+            col("kafka_key"),
+            col("topic"),
+            col("partition"),
+            col("offset"),
+            col("kafka_timestamp"),
+            col("ingested_at"),
+            col("ingestion_date"),
+        )
+    )
+
+    rejected_batch_df = (
+        batch_df
+        .filter(col("is_valid") == False)
+        .select(
+            col("validation_error"),
+            col("raw_json"),
+            col("event_id"),
+            col("ride_id"),
+            col("driver_id"),
+            col("rider_id"),
+            col("event_type"),
+            col("event_version"),
+            col("event_timestamp"),
+            col("pickup_location"),
+            col("dropoff_location"),
+            col("fare_usd"),
+            col("payment_method"),
+            col("payment_status"),
+            col("kafka_key"),
+            col("topic"),
+            col("partition"),
+            col("offset"),
+            col("kafka_timestamp"),
+            col("ingested_at"),
+            col("ingestion_date"),
+        )
+    )
+
+    print(f"Batch {batch_id}: sample valid clean records")
+    valid_clean_batch_df.show(20, truncate=False)
+
+    print(f"Batch {batch_id}: sample rejected records")
+    rejected_batch_df.show(20, truncate=False)
+
+    raw_batch_df.write \
+        .mode("append") \
+        .partitionBy("ingestion_date") \
+        .json(RAW_OUTPUT_PATH)
+
+    valid_clean_batch_df.write \
+        .mode("append") \
+        .partitionBy("ingestion_date") \
+        .parquet(CLEAN_OUTPUT_PATH)
+
+    rejected_batch_df.write \
+        .mode("append") \
+        .partitionBy("ingestion_date") \
+        .json(REJECTED_OUTPUT_PATH)
+
+    print(f"Batch {batch_id}: write complete.")
+    print(f"Raw output: {RAW_OUTPUT_PATH}")
+    print(f"Clean output: {CLEAN_OUTPUT_PATH}")
+    print(f"Rejected output: {REJECTED_OUTPUT_PATH}")
+
+    batch_df.unpersist()
+
+
 def main():
+    print(f"KAFKA_BOOTSTRAP_SERVERS={KAFKA_BOOTSTRAP_SERVERS}")
+    print(f"KAFKA_TOPIC={KAFKA_TOPIC}")
+    print(f"KAFKA_CONSUMER_GROUP={KAFKA_CONSUMER_GROUP}")
+    print(f"MINIO_ENDPOINT={MINIO_ENDPOINT}")
+    print(f"MINIO_BUCKET={MINIO_BUCKET}")
+
     spark = create_spark_session()
 
     kafka_df = (
@@ -73,7 +248,9 @@ def main():
         .format("kafka")
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS)
         .option("subscribe", KAFKA_TOPIC)
-        .option("startingOffsets", "latest")
+        .option("kafka.group.id", KAFKA_CONSUMER_GROUP)
+        .option("startingOffsets", "earliest")
+        .option("failOnDataLoss", "false")
         .load()
     )
 
@@ -124,6 +301,7 @@ def main():
             col("event.fare_usd").alias("fare_usd"),
             lower(col("event.payment_method")).alias("payment_method"),
             lower(col("event.payment_status")).alias("payment_status"),
+            col("raw_json"),
             col("kafka_key"),
             col("topic"),
             col("partition"),
@@ -137,85 +315,59 @@ def main():
     validated_df = (
         clean_df
         .withColumn(
-            "is_valid",
-            col("event_id").isNotNull()
-            & col("ride_id").isNotNull()
-            & col("event_type").isNotNull()
-            & col("event_timestamp").isNotNull()
-            & col("pickup_location").isNotNull()
-            & col("dropoff_location").isNotNull()
+            "validation_error",
+            when(col("event_id").isNull(), lit("missing_event_id"))
+            .when(col("ride_id").isNull(), lit("missing_ride_id"))
+            .when(col("driver_id").isNull(), lit("missing_driver_id"))
+            .when(col("rider_id").isNull(), lit("missing_rider_id"))
+            .when(col("event_type").isNull(), lit("missing_event_type"))
+            .when(~col("event_type").isin(ALLOWED_EVENT_TYPES), lit("invalid_event_type"))
+            .when(col("event_timestamp").isNull(), lit("missing_or_invalid_event_timestamp"))
+            .when(col("pickup_location").isNull(), lit("missing_pickup_location"))
+            .when(col("dropoff_location").isNull(), lit("missing_dropoff_location"))
+            .when(col("payment_method").isNull(), lit("missing_payment_method"))
+            .when(~col("payment_method").isin(ALLOWED_PAYMENT_METHODS), lit("invalid_payment_method"))
+            .when(col("payment_status").isNull(), lit("missing_payment_status"))
+            .when(~col("payment_status").isin(ALLOWED_PAYMENT_STATUSES), lit("invalid_payment_status"))
+            .when(
+                (col("event_type").isin("trip_completed", "payment_completed"))
+                & col("fare_usd").isNull(),
+                lit("fare_required_for_completed_events")
+            )
+            .when(
+                (col("event_type").isin("trip_completed", "payment_completed"))
+                & (col("fare_usd") <= 0),
+                lit("fare_must_be_positive_for_completed_events")
+            )
+            .when(
+                (col("event_type") == "payment_completed")
+                & (col("payment_status") != "paid"),
+                lit("payment_completed_must_have_paid_status")
+            )
+            .otherwise(lit(None))
         )
+        .withColumn("is_valid", col("validation_error").isNull())
     )
 
-    valid_clean_df = (
-        validated_df
-        .filter(col("is_valid") == True)
-        .drop("is_valid")
-    )
-
-    rejected_df = (
-        validated_df
-        .filter(col("is_valid") == False)
-        .select(
-            col("event_id"),
-            col("ride_id"),
-            col("event_type"),
-            col("event_timestamp"),
-            col("pickup_location"),
-            col("dropoff_location"),
-            col("fare_usd"),
-            col("payment_method"),
-            col("payment_status"),
-            col("kafka_key"),
-            col("topic"),
-            col("partition"),
-            col("offset"),
-            col("kafka_timestamp"),
-            col("ingested_at"),
-            col("ingestion_date"),
-        )
-    )
-
-    raw_query = (
-        raw_df.writeStream
-        .format("json")
-        .option("path", RAW_OUTPUT_PATH)
-        .option("checkpointLocation", RAW_CHECKPOINT_PATH)
-        .partitionBy("ingestion_date")
+    streaming_query = (
+        validated_df.writeStream
+        .queryName("ride_events_kafka_to_minio_foreach_batch")
+        .foreachBatch(process_micro_batch)
+        .option("checkpointLocation", FOREACH_BATCH_CHECKPOINT_PATH)
         .outputMode("append")
         .trigger(processingTime="15 seconds")
         .start()
     )
 
-    clean_query = (
-        valid_clean_df.writeStream
-        .format("parquet")
-        .option("path", CLEAN_OUTPUT_PATH)
-        .option("checkpointLocation", CLEAN_CHECKPOINT_PATH)
-        .partitionBy("ingestion_date")
-        .outputMode("append")
-        .trigger(processingTime="15 seconds")
-        .start()
-    )
-
-    rejected_query = (
-        rejected_df.writeStream
-        .format("json")
-        .option("path", REJECTED_OUTPUT_PATH)
-        .option("checkpointLocation", REJECTED_CHECKPOINT_PATH)
-        .partitionBy("ingestion_date")
-        .outputMode("append")
-        .trigger(processingTime="15 seconds")
-        .start()
-    )
-
-    print("Spark streaming job started.")
+    print("Spark foreachBatch streaming job started.")
     print(f"Kafka topic: {KAFKA_TOPIC}")
+    print(f"Kafka consumer group: {KAFKA_CONSUMER_GROUP}")
+    print(f"Checkpoint: {FOREACH_BATCH_CHECKPOINT_PATH}")
     print(f"Raw output: {RAW_OUTPUT_PATH}")
     print(f"Clean output: {CLEAN_OUTPUT_PATH}")
     print(f"Rejected output: {REJECTED_OUTPUT_PATH}")
 
-    spark.streams.awaitAnyTermination()
+    streaming_query.awaitTermination()
 
 
 if __name__ == "__main__":

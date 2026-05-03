@@ -55,6 +55,9 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -67,15 +70,112 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: ride_zookeeper:2181
-
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://ride_kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://ride_kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
 
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: ride_kafka_init
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+      echo 'Waiting for Kafka to be ready...';
+      cub kafka-ready -b ride_kafka:29092 1 30;
+      echo 'Creating Kafka topic ride_events if it does not exist...';
+      kafka-topics --bootstrap-server ride_kafka:29092
+      --create
+      --if-not-exists
+      --topic ride_events
+      --partitions 1
+      --replication-factor 1;
+      echo 'Kafka topic setup complete.';
+      "
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: ride_kafka_ui
+    depends_on:
+      - kafka
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "ride-hailing-local"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "ride_kafka:29092"
+
+
+  spark-streaming:
+    build:
+      context: .
+      dockerfile: docker/spark/Dockerfile
+    image: ride-hailing-spark:3.5.1
+    container_name: ride_spark_streaming
+    depends_on:
+      - kafka-init
+      - minio-init
+    ports:
+      - "4040:4040"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "ride_kafka:29092"
+      KAFKA_TOPIC: "ride_events"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_BUCKET: "ride-hailing-data"
+      HOME: "/tmp"
+    volumes:
+      - ./spark:/opt/ride-hailing/spark
+    command: >
+      /opt/spark/bin/spark-submit
+      --conf spark.ui.port=4040
+      --conf spark.ui.bindAddress=0.0.0.0
+      --conf spark.driver.bindAddress=0.0.0.0
+      /opt/ride-hailing/spark/stream_ride_events_to_minio.py
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: ride_minio_init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...';
+      sleep 10;
+
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+
+      echo 'Creating bucket if missing...';
+      mc mb --ignore-existing local/ride-hailing-data;
+
+      echo 'Creating data lake paths...';
+      echo '' > /tmp/.keep;
+
+      mc cp /tmp/.keep local/ride-hailing-data/raw/.keep;
+      mc cp /tmp/.keep local/ride-hailing-data/raw/ride_events/.keep;
+
+      mc cp /tmp/.keep local/ride-hailing-data/clean/.keep;
+      mc cp /tmp/.keep local/ride-hailing-data/clean/ride_events/.keep;
+
+      mc cp /tmp/.keep local/ride-hailing-data/curated/.keep;
+
+      mc cp /tmp/.keep local/ride-hailing-data/rejected/.keep;
+      mc cp /tmp/.keep local/ride-hailing-data/rejected/ride_events/.keep;
+
+      mc cp /tmp/.keep local/ride-hailing-data/archive/.keep;
+
+      mc cp /tmp/.keep local/ride-hailing-data/checkpoints/.keep;
+
+      echo 'MinIO bucket and paths setup complete.';
+      "
 
 volumes:
   postgres_data:
   minio_data:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_logs:
