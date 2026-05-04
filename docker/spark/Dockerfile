@@ -11,9 +11,10 @@ RUN echo 'print("Downloading Spark dependencies during image build...")' > /tmp/
 # These are needed for:
 # - Kafka source: .format("kafka")
 # - MinIO/S3A writing: s3a:// paths
+
 RUN /opt/spark/bin/spark-submit \
     --conf spark.jars.ivy=/tmp/.ivy2 \
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.hadoop:hadoop-aws:3.3.4 \
+    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.apache.hadoop:hadoop-aws:3.3.4,org.postgresql:postgresql:42.7.3 \
     /tmp/download_deps.py
 
 # Copy resolved JARs into Spark's runtime classpath.

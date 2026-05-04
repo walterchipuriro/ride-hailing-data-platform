@@ -4,6 +4,7 @@ import argparse
 import json
 import random
 import time
+import uuid
 from datetime import datetime, timedelta
 
 from kafka import KafkaProducer
@@ -40,6 +41,19 @@ KAFKA_TOPIC = "ride_events"
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 
 
+def generate_unique_id(prefix: str) -> str:
+    """
+    Generate a globally unique ID.
+
+    Example:
+    evt_20260503_183012_a1b2c3d4
+    ride_20260503_183012_f9e8d7c6
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    random_part = uuid.uuid4().hex[:8]
+    return f"{prefix}_{timestamp}_{random_part}"
+
+
 def random_event_timestamp() -> str:
     now = datetime.now()
     random_minutes_ago = random.randint(1, 1440)
@@ -66,8 +80,8 @@ def generate_good_event(index: int) -> dict:
         payment_status = "paid"
 
     event = {
-        "event_id": f"evt_{index:06d}",
-        "ride_id": f"ride_{random.randint(1, 999999):06d}",
+        "event_id": generate_unique_id("evt"),
+        "ride_id": generate_unique_id("ride"),
         "driver_id": f"drv_{random.randint(1, 9999):04d}",
         "rider_id": f"rdr_{random.randint(1, 9999):04d}",
         "event_type": event_type,
@@ -178,7 +192,7 @@ def send_event_to_kafka(producer: KafkaProducer, topic: str, event: dict) -> Non
     kafka_key = (
         event.get("ride_id")
         or event.get("event_id")
-        or f"bad_record_{random.randint(1, 999999)}"
+        or generate_unique_id("bad_record")
     )
 
     producer.send(

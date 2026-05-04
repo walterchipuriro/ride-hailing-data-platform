@@ -127,6 +127,11 @@ services:
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
       MINIO_BUCKET: "ride-hailing-data"
+      POSTGRES_HOST: "ride_hailing_postgres"
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: "ride_hailing_dw"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
       HOME: "/tmp"
     volumes:
       - ./spark:/opt/ride-hailing/spark
@@ -173,9 +178,124 @@ services:
       echo 'MinIO bucket and paths setup complete.';
       "
 
+  airflow-postgres:
+    image: postgres:16
+    container_name: ride_airflow_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    image: ride-hailing-airflow:2.9.3
+    container_name: ride_airflow_init
+    depends_on:
+      - airflow-postgres
+      - postgres
+      - minio
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+      POSTGRES_HOST: ride_hailing_postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ride_hailing_dw
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: ride-hailing-data
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./spark:/opt/ride-hailing/spark
+      - ./warehouse:/opt/ride-hailing/warehouse
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create
+      --username admin
+      --password admin
+      --firstname Walter
+      --lastname Claudio
+      --role Admin
+      --email admin@example.com
+      "
+
+  airflow-webserver:
+    image: ride-hailing-airflow:2.9.3
+    container_name: ride_airflow_webserver
+    depends_on:
+      - airflow-init
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+      POSTGRES_HOST: ride_hailing_postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ride_hailing_dw
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: ride-hailing-data
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./spark:/opt/ride-hailing/spark
+      - ./warehouse:/opt/ride-hailing/warehouse
+    command: webserver
+
+  airflow-scheduler:
+    image: ride-hailing-airflow:2.9.3
+    container_name: ride_airflow_scheduler
+    depends_on:
+      - airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+      POSTGRES_HOST: ride_hailing_postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ride_hailing_dw
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: ride-hailing-data
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./spark:/opt/ride-hailing/spark
+      - ./warehouse:/opt/ride-hailing/warehouse
+    command: scheduler
+
+
 volumes:
   postgres_data:
   minio_data:
   kafka_data:
   zookeeper_data:
   zookeeper_logs:
+  airflow_postgres_data:
